@@ -1,0 +1,219 @@
+typedef struct{
+	rtk_t rtk;
+	int nb[2];
+	int buffPtr[2];//buffer pointer
+	uint8_t* buff[2];//input buffers
+//	uint8_t sbuff[100];//solution buffer
+//	sol_t solbuf;
+	raw_t raw[2];
+	gtime_t ftime;//download time
+	obs_t obs[2];//observation data (rover,base)
+	nav_t nav;
+	int format[3];      /* input format {rov,base,corr} */
+}rtksvr_t;
+
+typedef struct{
+	uint8_t sat; //satellite number
+	int iode, iodc;
+	int sva;	//SV accuracy
+	int svh;	//SV health (0: ok)
+	int week;	//gps week
+	gtime_t toe, toc, ttr;	//Toe, Toc, T transmit
+	double A, e, i0, OMG0, omg, M0, deln, OMgd, idot;
+	double crc, crs, cuc, cus, cic, cis;
+	double toes;//Toe(s) in week
+	double fit;//fit interval
+	double f0, f1, f2;//SV clock params
+	double tgd[4];	//group delay params
+}eph_t;
+
+typedef struct{
+	time_t time;	//seconds since 00:00:00 January 1st 1970
+	double frac;	//fraction of second under 1s
+}gtime_t;
+
+typedef struct{
+	sol_t sol;
+	double rb[6];//base position/velocity (ecef) (m,m/s)
+	int nx, na;//number of float states/fixed states
+	double tt;//time difference between current and previous
+	double x[35], P[35*35];//float states and their cov
+	//float state:pos(3),vel(3),acc(3),sat(32)
+	double xa[3], Pa[9];//fixed stated and their cov
+	//fix state:pos(3),vel(3),acc(3)
+	int nfix;//number of continuous fixes of ambiguity
+	//ambc_t ambc[MAX_SAT];
+	ssat_t ssat[MAX_SAT];
+	int neb;//bytes in error msg buffer
+	char errbuf[MAX_ERRMSG];//error msg buffer
+	int errLen;
+	prcopt_t opt;
+}rtk_t;
+
+typedef struct{
+	gtime_t time;
+	double rr[6];//pos/vel (m,m/s)
+	float qr[6];//pos variance/covariance (m^2)
+	                        /* {c_xx,c_yy,c_zz,c_xy,c_yz,c_zx} or */
+                        /* {c_ee,c_nn,c_uu,c_en,c_nu,c_ue} */
+	double dtr[1];//receiver clock bias
+	uint8_t type;//0: xyz-ecef, 1:enu-baseline
+	uint8_t stat;//solution status
+	uint8_t ns;//number of valid satellites
+	float age;//age of differential (s)
+	float ratio;//for validation
+	int processTime;
+	int encoder;
+	char *result;
+}sol_t;
+
+typedef struct{
+	gtime_t time; //message time
+	gtime_t tobs;	//observation data time
+	obs_t obs;	//observation data
+//	obs_t obuf;	//observation data buffer
+	nav_t nav;
+	int ephsat;	//sat number of update ephemeris (0: no satellite)
+	uint8_t subfrm[MAX_SAT][150]; // ~5Kb
+	double lockt[MAX_SAT][2];
+	double icpp[MAX_SAT], off[MAX_SAT], icpc;
+	int nbyte;
+	int nbyteLeft;
+	int len;
+	int iod;	//issue of data
+	int tod;	//time of day (ms)
+	int flag; //general purpose flag
+	uint8_t buff[MAX_RAW_LEN];
+}raw_t;
+
+typedef struct{
+	int n, nmax;	//number of observation data/allocated
+	obsd_t data[MAX_SAT];//~280 bytes
+}obs_t;
+
+typedef struct{//observation data record, single band
+	gtime_t time; //receiver sampling time
+	uint8_t sat, rcv;//satellite/receiver number
+	uint8_t SNR;
+	uint8_t LLI;//lost of clock indicator
+
+	double L;
+	double P;
+	float D;
+}obsd_t;
+
+typedef struct{
+	int n,nmax;//number of broadcast ephemeris
+//	int na, namax;//number of almanac data
+	eph_t* eph;
+//	erp_t erp;//earth rotation param
+//	alm_t *alm;         /* almanac data */
+	double utc_gps[4];//GPS delta-UTC params {A0, A1, T, W}
+	double ion_gps[8];//GPS iono model params {a0-a3,b0-b3}
+	int leaps;
+//	double lam[MAX_SAT];//carrier wave length
+//	double cbias[MAX_SAT][3];//code bias (0:p1-p2,1:p1-c1,2:p2-c2)
+}nav_t;
+
+
+void init_raw(raw_t* raw,eph_t *eph){/*Cài đặt các thông số của svr*/
+	int i=0,j=0;
+	gtime_t time0 = {0};
+	obsd_t data0 = {{0}};
+	//alm_t  alm0 ={0,-1};
+	eph_t eph0 ={0,-1,-1};
+
+	raw->time = raw->tobs = time0;
+
+	raw->obs.n=0;
+//	raw->obuf.n=0;
+	for (i=0;i<MAX_OBS;i++)
+	{
+		raw->obs.data[i]=data0;
+	}
+	if (eph!=NULL)
+	{
+		for (i=0;i<MAX_SAT;i++)
+		{
+			eph[i]=eph0;
+			//alm[i]=alm0;
+		}
+		raw->nav.eph = eph;
+	}
+	//raw->nav.alm = alm;
+	raw->nav.n = MAX_SAT;
+	raw->ephsat = 0;
+
+	for (i=0;i<MAX_SAT;i++)
+	{
+		for (j=0;j<150;j++)
+		{
+			raw->subfrm[i][j] = 0;
+		}
+		raw->icpp[i]=raw->off[i]=0;
+	}
+	raw->icpc=0;
+
+	raw->nbyte = raw->len = 0;
+	raw->iod = raw->flag = 0;
+	raw->tod = -1;
+
+	for (i=0;i<MAX_RAW_LEN;i++)
+		raw->buff[i] = 0;
+
+}
+void rtksvrstart(rtksvr_t* svr) {/*CÀI ĐẶT CÁC THÔNG SỐ CỦA svr, gọi hàm init*/
+	int i;
+	eph_t eph0 = {0,-1,-1};
+	gtime_t time0={0};
+
+	rtkinit(&svr->rtk,&default_opt);
+
+	/*tạo mảng Input cho rover và base, gồm 2 mảng, mỗi mảng 3000 phần tử*/
+	svr->buff[0] = roverBuff; //static uint8_t roverBuff[MAX_RAW_LEN]	với #define MAX_RAW_LEN 3000
+	svr->buff[1] = baseBuff;	//static uint8_t baseBuff[MAX_RAW_LEN]
+
+	/*Gán nb[0][1] của svr thành 0*/
+	svr->nb[0]=svr->nb[1]=0;
+
+	/*Gán Pointer của svr bằng 0*/
+	svr->buffPtr[0]=svr->buffPtr[1]=0;
+
+	/*Gán pointer vào giá trị bắt đầu của mảng*/
+	svr->rtk.sol.result = result; //static char result[SOL_MSG_LEN] với #define SOL_MSG_LEN 160
+
+	init_raw(svr->raw,REph); 			//static eph_t REph[MAX_SAT];		#define MAX_SAT 32
+	init_raw(svr->raw+1,BEph);		//static eph_t BEph[MAX_SAT];		#define MAX_SAT 32
+
+	/*Biến time0 được khai báo ở trên kiểu gtime_t*/
+	svr->ftime = time0;
+
+	/**/
+	svr->obs[0].n=0;
+	svr->obs[1].n=0;
+
+	/*Biến eph đươc khai báo ở trên kiểu eph_t*/
+	svr->nav.eph = eph;
+
+	for (i=0;i<2*MAX_SAT;i++)
+	{
+		svr->nav.eph[i]=eph0;
+		svr->nav.eph[i].ttr = time0;
+		svr->nav.eph[i].sat=0;
+	}
+
+	svr->nav.n = 2*MAX_SAT;
+
+	/*Format ở Base và Rover đều là UBX*/
+	svr->format[0] = STRFMT_UBX;//rover
+	svr->format[1] = STRFMT_UBX;//base
+}
+
+/*
+*Nhận DMA UART từ UartGPSHandle vào buff[0] với chiều dài 3000 bytes
+*Nhận DMA UART từ UartRFHandle vào buff[1] với chiều dài 3000 bytes
+*/
+while (HAL_UART_Receive_DMA(&UartGPSHandle,svr.buff[0],MAX_RAW_LEN) != HAL_OK){};
+while (HAL_UART_Receive_DMA(&UartRFHandle,svr.buff[1],MAX_RAW_LEN) != HAL_OK){};
+
+/*Trong vòng while, chờ cờ Flag time out set bởi Timer 3, có flag time out sẽ hoạt động*/

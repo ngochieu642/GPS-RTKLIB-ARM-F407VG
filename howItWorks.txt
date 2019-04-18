@@ -1,0 +1,63 @@
+Sử dụng TIM3, Prescaler = 4199 , Period = 1999
+PD12->15
+
+USART4:
+  PC10 | PC11
+  dma tx DMA1 stream 4
+USART2:
+  PA2 | PA3
+  dma rx DMA1 stream 5
+USART1:
+  PB6 | PB7
+  dma rx DMA2 stream 2
+USART6:
+  PC6 | PC7
+  dma rx2 DMA2 stream 1
+
+interupt.h
+  DMA1 stream 6: USART2 Tx
+  DMA2 stream 7: USART1 Rx
+
+main.c
+  Sử dụng các hàm, định nghĩa trong rtk.h
+
+  Định nghĩa 3 kênh Uart:
+    UartGPSHandler(nhận từ GPS): USART2
+      BaudRate 230400 nếu sử dụng format UBX, 19200 nếu sử dụng format SS2
+      8 bit Data, 1 Stopbit, Parity = None, Hardware Flow Control = None, RX | TX
+    UartRFHandler(nhận từ Server):USART6
+      BaudRate 57600
+      8 bit Data, 1 Stopbit, Parity = None, Hardware Flow Control = None, RX | TX
+    UartResultHanlder: UART4
+      BaudRate 115200
+      8 bit Data, 1 Stopbit, Parity = None, Hardware Flow Control = None, RX | TX
+
+  Định nghĩa các hàm:
+    void sendRequest(int baseFormat): gửi 19Bytes qua kênh UartGPSHandler
+
+    int decode_raw(rtksvr_t* svr,int index), với rtksvr_t là struct được định nghĩa trong rtk.h
+      //Struct rtksvr_t
+      typedef struct{
+      rtk_t rtk;
+      int nb[2];
+      int buffPtr[2];//buffer pointer
+      uint8_t* buff[2];//input buffers
+      //	uint8_t sbuff[100];//solution buffer
+      //	sol_t solbuf;
+      raw_t raw[2];
+      gtime_t ftime;//download time
+      obs_t obs[2];//observation data (rover,base)
+      nav_t nav;
+      int format[3];      /* input format {rov,base,corr} */
+      }rtksvr_t;
+
+    decode_raw  xét thuộc tính format của svr, xem thử là UBX hay SS2, có dùng tới các hàm updatesvr(trong rtksvr.c),Error input_ubx(raw_t* raw, uint8_t data) trong ublox.c
+    với Error là kiểu enum được định nghĩa trong ublox.c, nếu thấy err = NO_ERROR1 thì thực hiện updatesvr(svr,err,index), hàm này trả về res với res là 1 biến được
+    cộng lên mỗi khi err = OBS
+
+    SendInt(int num): truyền int dưới dạng 4 byte tới UartResultHanlder, byte cuối là '\n'
+    SendStr(const char* str): truyền Str dưới dạng từng Byte(8 bit -char) tới UartResultHanlder với chiều dài bằng chiều dài str
+
+  Trong hàm main() gọi:
+    Các hàm Config
+    void rktsvrstart(&svr) - hàm trong rtksvr.c
