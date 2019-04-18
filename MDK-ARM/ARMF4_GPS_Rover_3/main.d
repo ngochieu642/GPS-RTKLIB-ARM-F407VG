@@ -1,7 +1,5 @@
 armf4_gps_rover_3\main.o: ../Core/Src/main.c
 armf4_gps_rover_3\main.o: ../Core/Inc/main.h
-armf4_gps_rover_3\main.o: F:\Keil_v5\ARM\ARMCC\Bin\..\include\stdint.h
-armf4_gps_rover_3\main.o: F:\Keil_v5\ARM\ARMCC\Bin\..\include\stdbool.h
 armf4_gps_rover_3\main.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h
 armf4_gps_rover_3\main.o: ../Core/Inc/stm32f4xx_hal_conf.h
 armf4_gps_rover_3\main.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rcc.h
@@ -9,6 +7,7 @@ armf4_gps_rover_3\main.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.
 armf4_gps_rover_3\main.o: ../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f4xx.h
 armf4_gps_rover_3\main.o: ../Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f407xx.h
 armf4_gps_rover_3\main.o: ../Drivers/CMSIS/Include/core_cm4.h
+armf4_gps_rover_3\main.o: F:\Keil_v5\ARM\ARMCC\Bin\..\include\stdint.h
 armf4_gps_rover_3\main.o: ../Drivers/CMSIS/Include/core_cmInstr.h
 armf4_gps_rover_3\main.o: ../Drivers/CMSIS/Include/cmsis_armcc.h
 armf4_gps_rover_3\main.o: ../Drivers/CMSIS/Include/core_cmFunc.h
@@ -28,9 +27,10 @@ armf4_gps_rover_3\main.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flas
 armf4_gps_rover_3\main.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h
 armf4_gps_rover_3\main.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h
 armf4_gps_rover_3\main.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h
-armf4_gps_rover_3\main.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h
 armf4_gps_rover_3\main.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim.h
 armf4_gps_rover_3\main.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim_ex.h
+armf4_gps_rover_3\main.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h
+armf4_gps_rover_3\main.o: F:\Keil_v5\ARM\ARMCC\Bin\..\include\stdbool.h
 armf4_gps_rover_3\main.o: ../Core/Inc/rtk.h
 armf4_gps_rover_3\main.o: F:\Keil_v5\ARM\ARMCC\Bin\..\include\math.h
 armf4_gps_rover_3\main.o: F:\Keil_v5\ARM\ARMCC\Bin\..\include\cstring

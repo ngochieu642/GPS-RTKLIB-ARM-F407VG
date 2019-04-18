@@ -1,147 +1,82 @@
-/* USER CODE BEGIN Header */
-/**
-  ******************************************************************************
-  * @file           : main.c
-  * @brief          : Main program body
-  ******************************************************************************
-  ** This notice applies to any and all portions of this file
-  * that are not between comment pairs USER CODE BEGIN and
-  * USER CODE END. Other portions of this file, whether 
-  * inserted by the user or by software development tools
-  * are owned by their respective copyright owners.
-  *
-  * COPYRIGHT(c) 2019 STMicroelectronics
-  *
-  * Redistribution and use in source and binary forms, with or without modification,
-  * are permitted provided that the following conditions are met:
-  *   1. Redistributions of source code must retain the above copyright notice,
-  *      this list of conditions and the following disclaimer.
-  *   2. Redistributions in binary form must reproduce the above copyright notice,
-  *      this list of conditions and the following disclaimer in the documentation
-  *      and/or other materials provided with the distribution.
-  *   3. Neither the name of STMicroelectronics nor the names of its contributors
-  *      may be used to endorse or promote products derived from this software
-  *      without specific prior written permission.
-  *
-  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-  * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-  * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-  * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-  *
-  ******************************************************************************
-  */
-/* USER CODE END Header */
-
-/* Includes ------------------------------------------------------------------*/
 #include "main.h"
 
-/* Private includes ----------------------------------------------------------*/
-/* USER CODE BEGIN Includes */
+#define TIMER_FREQ_HZ 5;
 
-/* USER CODE END Includes */
+#ifdef TIME_MEASURE /*Defined in rtk.h */
+uint32_t t=0,start=0;
+#endif
 
-/* Private typedef -----------------------------------------------------------*/
-/* USER CODE BEGIN PTD */
-
-/* USER CODE END PTD */
-
-/* Private define ------------------------------------------------------------*/
-/* USER CODE BEGIN PD */
-
-/* USER CODE END PD */
-
-/* Private macro -------------------------------------------------------------*/
-/* USER CODE BEGIN PM */
-
-/* USER CODE END PM */
-
-/* Private variables ---------------------------------------------------------*/
-UART_HandleTypeDef huart4;
-UART_HandleTypeDef huart2;
-UART_HandleTypeDef huart6;
+/*DMA interrupt variables*/
 DMA_HandleTypeDef hdma_uart4_tx;
 DMA_HandleTypeDef hdma_usart2_rx;
 DMA_HandleTypeDef hdma_usart6_rx;
 
-/* USER CODE BEGIN PV */
-uint8_t UART2Buffer[10];
-/* USER CODE END PV */
+/* Test Variables */
+uint8_t UART2Buffer[10],UART6Buffer[10];
+uint8_t UART4Buffer[10]={1,2,3,4,5,6,7,8,9,10};
+
+/*Memory Optimization*/
+UART_HandleTypeDef 	UartResultHandle,	/*UART4 PC10 PC11*/
+										UartGPSHandle,		/*UART2 PA2  PA3*/
+										UartRFHandle __attribute__((section("IRAM2")));		/*UART6 PC6  PC7*/
+TIM_HandleTypeDef TimerHandle __attribute__((section("IRAM2")));
+
+TIM_IC_InitTypeDef sConfig __attribute__((section("IRAM2")));
+TIM_SlaveConfigTypeDef sSlaveConfig __attribute__((section("IRAM2")));
+
+static obsd_t obsd[2*MAX_SAT] __attribute__((section("IRAM2")));
+static rtksvr_t svr __attribute__((section("IRAM2")));
+
+static volatile bool flagTimeout=0;
+static int fobs[2];
+static volatile Error RError=INCOMPLETE;//rover data error
+static volatile Error BError=INCOMPLETE;//base data error
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
-static void MX_GPIO_Init(void);
-static void MX_DMA_Init(void);
-static void MX_UART4_Init(void);
-static void MX_USART2_UART_Init(void);
-static void MX_USART6_UART_Init(void);
-/* USER CODE BEGIN PFP */
+void ConfigLED(void);
+void ConfigTimer(void);
+void ConfigUART(int baseFormat);
+void ConfigDMA(void);
+int decode_raw(rtksvr_t* svr, int index);
 
-/* USER CODE END PFP */
+/*UART Function*/
+void sendRequest(int baseFormat);
+void SendInt(int num);
+void SendIntStr(int num);
+void SendStr(const char *str);
 
-/* Private user code ---------------------------------------------------------*/
-/* USER CODE BEGIN 0 */
-
-/* USER CODE END 0 */
-
-/**
-  * @brief  The application entry point.
-  * @retval int
-  */
 int main(void)
 {
-  /* USER CODE BEGIN 1 */
-
-  /* USER CODE END 1 */
-
-  /* MCU Configuration--------------------------------------------------------*/
-
-  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
-
-  /* USER CODE BEGIN Init */
-
-  /* USER CODE END Init */
-
-  /* Configure the system clock */
+	
   SystemClock_Config();
+	ConfigLED();
+	ConfigDMA();
+	ConfigTimer();
+	
+	rtksvrstart(&svr);
+	ConfigUART(svr.format[0]);
+	
 
-  /* USER CODE BEGIN SysInit */
-
-  /* USER CODE END SysInit */
-
-  /* Initialize all configured peripherals */
-  MX_GPIO_Init();
-  MX_DMA_Init();
-  MX_UART4_Init();
-  MX_USART2_UART_Init();
-  MX_USART6_UART_Init();
-  /* USER CODE BEGIN 2 */
-	HAL_UART_Receive_DMA(&huart2,&UART2Buffer[0],10);
+	/*Test code*/
+	HAL_UART_Receive_DMA(&UartGPSHandle,&UART2Buffer[0],10);
+	HAL_UART_Receive_DMA(&UartRFHandle,&UART6Buffer[0],10);
+	/*----End of Test Code--------*/
+	
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-		LED3_TOGGLE;
+		for(int i = 0;i<10;i++)
+			UART4Buffer[i]+=1;
+		HAL_UART_Transmit_DMA(&UartResultHandle,&UART4Buffer[0],10);
 		HAL_Delay(1000);
-    /* USER CODE END WHILE */
-
-    /* USER CODE BEGIN 3 */
   }
-  /* USER CODE END 3 */
 }
 
-/**
-  * @brief System Clock Configuration
-  * @retval None
-  */
 void SystemClock_Config(void)
 {
   RCC_OscInitTypeDef RCC_OscInitStruct = {0};
@@ -180,178 +115,305 @@ void SystemClock_Config(void)
     Error_Handler();
   }
 }
-
-/**
-  * @brief UART4 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_UART4_Init(void)
+void ConfigLED(void)
 {
-
-  /* USER CODE BEGIN UART4_Init 0 */
-
-  /* USER CODE END UART4_Init 0 */
-
-  /* USER CODE BEGIN UART4_Init 1 */
-
-  /* USER CODE END UART4_Init 1 */
-  huart4.Instance = UART4;
-  huart4.Init.BaudRate = 115200;
-  huart4.Init.WordLength = UART_WORDLENGTH_8B;
-  huart4.Init.StopBits = UART_STOPBITS_1;
-  huart4.Init.Parity = UART_PARITY_NONE;
-  huart4.Init.Mode = UART_MODE_TX_RX;
-  huart4.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  huart4.Init.OverSampling = UART_OVERSAMPLING_16;
-  if (HAL_UART_Init(&huart4) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN UART4_Init 2 */
-
-  /* USER CODE END UART4_Init 2 */
-
+	__HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOD_CLK_ENABLE();
+  __HAL_RCC_GPIOC_CLK_ENABLE();
+	
+	GPIO_InitTypeDef GPIO_InitStruct;
+	__GPIOD_CLK_ENABLE();
+	
+	GPIO_InitStruct.Mode 		= GPIO_MODE_OUTPUT_PP;
+	GPIO_InitStruct.Pin 		= GPIO_PIN_12 | GPIO_PIN_13 | GPIO_PIN_14 | GPIO_PIN_15;
+	GPIO_InitStruct.Pull 		= GPIO_NOPULL;
+	GPIO_InitStruct.Speed 	= GPIO_SPEED_MEDIUM;
+	HAL_GPIO_Init(GPIOD,&GPIO_InitStruct);
+	
+	/*Set all LEDs Off*/
+	LED3_OFF;
+	LED4_OFF;
+	LED5_OFF;
+	LED6_OFF;
 }
-
-/**
-  * @brief USART2 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_USART2_UART_Init(void)
+void ConfigTimer(void)
 {
-
-  /* USER CODE BEGIN USART2_Init 0 */
-
-  /* USER CODE END USART2_Init 0 */
-
-  /* USER CODE BEGIN USART2_Init 1 */
-
-  /* USER CODE END USART2_Init 1 */
-  huart2.Instance = USART2;
-  huart2.Init.BaudRate = 19200;
-  huart2.Init.WordLength = UART_WORDLENGTH_8B;
-  huart2.Init.StopBits = UART_STOPBITS_1;
-  huart2.Init.Parity = UART_PARITY_NONE;
-  huart2.Init.Mode = UART_MODE_TX_RX;
-  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
-  if (HAL_UART_Init(&huart2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN USART2_Init 2 */
-
-  /* USER CODE END USART2_Init 2 */
-
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+	
+  TimerHandle.Instance = TIM3;
+  TimerHandle.Init.Prescaler = 8199;
+  TimerHandle.Init.CounterMode = TIM_COUNTERMODE_UP;
+  TimerHandle.Init.Period = 19999;
+  TimerHandle.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+	
+	__TIM3_CLK_ENABLE();
+  HAL_TIM_Base_Init(&TimerHandle);
+		
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+	HAL_TIM_ConfigClockSource(&TimerHandle, &sClockSourceConfig);
+ 
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  HAL_TIMEx_MasterConfigSynchronization(&TimerHandle, &sMasterConfig);
+	
+	HAL_NVIC_SetPriority(TIM3_IRQn,2,0);
+	HAL_NVIC_EnableIRQ(TIM3_IRQn);
+	HAL_TIM_Base_Start_IT(&TimerHandle);
 }
-
-/**
-  * @brief USART6 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_USART6_UART_Init(void)
+void ConfigUART(int baseFormat)
 {
-
-  /* USER CODE BEGIN USART6_Init 0 */
-
-  /* USER CODE END USART6_Init 0 */
-
-  /* USER CODE BEGIN USART6_Init 1 */
-
-  /* USER CODE END USART6_Init 1 */
-  huart6.Instance = USART6;
-  huart6.Init.BaudRate = 115200;
-  huart6.Init.WordLength = UART_WORDLENGTH_8B;
-  huart6.Init.StopBits = UART_STOPBITS_1;
-  huart6.Init.Parity = UART_PARITY_NONE;
-  huart6.Init.Mode = UART_MODE_TX_RX;
-  huart6.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  huart6.Init.OverSampling = UART_OVERSAMPLING_16;
-  if (HAL_UART_Init(&huart6) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN USART6_Init 2 */
-
-  /* USER CODE END USART6_Init 2 */
-
+	/*Uart GPS*/
+	UartGPSHandle.Instance = USART2;
+	switch(baseFormat)
+	{
+		case(STRFMT_UBX):
+		{
+//			UartGPSHandle.Init.BaudRate = 230400;
+			UartGPSHandle.Init.BaudRate = 9600; /*Because Baudrate default is 9600*/
+			break;		
+		}
+		case(STRFMT_SS2):
+		{
+			//			UartGPSHandle.Init.BaudRate = 19200;
+			UartGPSHandle.Init.BaudRate = 9600; /*Because Baudrate default is 9600*/
+			break;
+		}
+		default:
+		{
+			UartGPSHandle.Init.BaudRate = 9600;
+		}
+	}
+	
+  UartGPSHandle.Init.WordLength = UART_WORDLENGTH_8B;
+  UartGPSHandle.Init.StopBits = UART_STOPBITS_1;
+  UartGPSHandle.Init.Parity = UART_PARITY_NONE;
+  UartGPSHandle.Init.Mode = UART_MODE_TX_RX;
+  UartGPSHandle.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  UartGPSHandle.Init.OverSampling = UART_OVERSAMPLING_16;
+  HAL_UART_Init(&UartGPSHandle);
+	
+	/*Uart Server*/
+	UartRFHandle.Instance = USART6;
+//	UartRFHandle.Init.BaudRate		= 57600;	
+  UartRFHandle.Init.BaudRate = 9600;
+  UartRFHandle.Init.WordLength = UART_WORDLENGTH_8B;
+  UartRFHandle.Init.StopBits = UART_STOPBITS_1;
+  UartRFHandle.Init.Parity = UART_PARITY_NONE;
+  UartRFHandle.Init.Mode = UART_MODE_TX_RX;
+  UartRFHandle.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  UartRFHandle.Init.OverSampling = UART_OVERSAMPLING_16;
+  HAL_UART_Init(&UartRFHandle);
+	
+	/*Uart Result*/
+	UartResultHandle.Instance = UART4;
+  UartResultHandle.Init.BaudRate = 19200;
+  UartResultHandle.Init.WordLength = UART_WORDLENGTH_8B;
+  UartResultHandle.Init.StopBits = UART_STOPBITS_1;
+  UartResultHandle.Init.Parity = UART_PARITY_NONE;
+  UartResultHandle.Init.Mode = UART_MODE_TX_RX;
+  UartResultHandle.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  UartResultHandle.Init.OverSampling = UART_OVERSAMPLING_16;
+  HAL_UART_Init(&UartResultHandle);
 }
-
-/** 
-  * Enable DMA controller clock
-  */
-static void MX_DMA_Init(void) 
+void ConfigDMA(void)
 {
-  /* DMA controller clock enable */
+/* DMA controller clock enable */
   __HAL_RCC_DMA1_CLK_ENABLE();
   __HAL_RCC_DMA2_CLK_ENABLE();
 
   /* DMA interrupt init */
   /* DMA1_Stream4_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Stream4_IRQn, 0, 0);
+  HAL_NVIC_SetPriority(DMA1_Stream4_IRQn, 1, 1);
   HAL_NVIC_EnableIRQ(DMA1_Stream4_IRQn);
   /* DMA1_Stream5_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Stream5_IRQn, 0, 0);
+  HAL_NVIC_SetPriority(DMA1_Stream5_IRQn, 0, 1);
   HAL_NVIC_EnableIRQ(DMA1_Stream5_IRQn);
   /* DMA2_Stream1_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA2_Stream1_IRQn, 0, 0);
+  HAL_NVIC_SetPriority(DMA2_Stream1_IRQn, 0, 1);
   HAL_NVIC_EnableIRQ(DMA2_Stream1_IRQn);
-
 }
-
-/**
-  * @brief GPIO Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_GPIO_Init(void)
-{
-  GPIO_InitTypeDef GPIO_InitStruct = {0};
-
-  /* GPIO Ports Clock Enable */
-  __HAL_RCC_GPIOA_CLK_ENABLE();
-  __HAL_RCC_GPIOD_CLK_ENABLE();
-  __HAL_RCC_GPIOC_CLK_ENABLE();
-
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12|GPIO_PIN_13|GPIO_PIN_14|GPIO_PIN_15, GPIO_PIN_RESET);
-
-  /*Configure GPIO pins : PD12 PD13 PD14 PD15 */
-  GPIO_InitStruct.Pin = GPIO_PIN_12|GPIO_PIN_13|GPIO_PIN_14|GPIO_PIN_15;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
-
-}
-
-/* USER CODE BEGIN 4 */
-
-/* USER CODE END 4 */
-
-/**
-  * @brief  This function is executed in case of error occurrence.
-  * @retval None
-  */
 void Error_Handler(void)
 {
-  /* USER CODE BEGIN Error_Handler_Debug */
-  /* User can add his own implementation to report the HAL error return state */
-
-  /* USER CODE END Error_Handler_Debug */
+}
+int decode_raw(rtksvr_t* svr, int index)
+{
+	uint8_t* i;
+	Error err; /*enum defined in rtk.h*/
+	char str[20];
+	int res = 0, res2 = 0, res3 = 0;
+	switch(svr->format[index])
+	{
+		case STRFMT_UBX:
+		{
+			if(svr->buffPtr[index]+svr->nb[index]<=MAX_RAW_LEN)
+			{
+				for(i=svr->buff[index]+svr->buffPtr[index]; i<svr->buff[index]+svr->buffPtr[index]+svr->nb[index]; i++)
+				{
+					err = input_ubx(&svr->raw[index],*i);
+					if(err>=NO_ERROR1) /*Defined in Error enum rtk.h*/
+					{
+						updatesvr(svr,err,index);
+						if(err==OBS)
+							res+=1;
+						else if (err==EPHEMERIS)
+							res2+=1;
+						else if (err==SOLUTION)
+							res3+=1;
+					}
+				}
+			}
+			else
+			{
+				for(i=svr->buff[index] + svr->buffPtr[index];i<svr->buff[index] + MAX_RAW_LEN;i++)
+				{
+					err = input_ubx(&svr->raw[index],*i);
+					if (err>=NO_ERROR1)
+					{
+						updatesvr(svr,err,index);
+						if (err==OBS)
+							res+=1;
+						else if (err==EPHEMERIS)
+							res2+=1;
+						else if (err==SOLUTION)
+							res3+=1;
+					}
+				}
+				
+				for(i=svr->buff[index];i<svr->buff[index] + svr->nb[index] + svr->buffPtr[index] - MAX_RAW_LEN;i++)
+				{
+					err = input_ubx(&svr->raw[index],*i);
+					if(err > NO_ERROR1)
+					{
+						updatesvr(svr,err,index);
+						if(err == OBS)
+							res+=1;
+						else if(err == EPHEMERIS)
+							res2+=1;
+						else if(err == SOLUTION)
+							res3+=1;
+					}
+				}
+			}
+			break;
+		}
+		case STRFMT_SS2:
+		{
+			if(svr->buffPtr[index]+svr->nb[index]<=MAX_RAW_LEN)
+			{
+				for(i=svr->buff[index]+svr->buffPtr[index]; i<svr->buff[index]+svr->buffPtr[index]+svr->nb[index]; i++)
+				{
+					err = input_ss2(&svr->raw[index],*i);
+					if(err>=NO_ERROR1) /*Defined in Error enum rtk.h*/
+					{
+						updatesvr(svr,err,index);
+						if(err==OBS)
+							res+=1;
+						else if (err==EPHEMERIS)
+							res2+=1;
+						else if (err==SOLUTION)
+							res3+=1;
+					}
+				}
+			}
+			else
+			{
+				for(i=svr->buff[index] + svr->buffPtr[index];i<svr->buff[index] + MAX_RAW_LEN;i++)
+				{
+					err = input_ss2(&svr->raw[index],*i);
+					if (err>=NO_ERROR1)
+					{
+						updatesvr(svr,err,index);
+						if (err==OBS)
+							res+=1;
+						else if (err==EPHEMERIS)
+							res2+=1;
+						else if (err==SOLUTION)
+							res3+=1;
+					}
+				}
+				
+				for(i=svr->buff[index];i<svr->buff[index] + svr->nb[index] + svr->buffPtr[index] - MAX_RAW_LEN;i++)
+				{
+					err = input_ss2(&svr->raw[index],*i);
+					if(err > NO_ERROR1)
+					{
+						updatesvr(svr,err,index);
+						if(err == OBS)
+							res+=1;
+						else if(err == EPHEMERIS)
+							res2+=1;
+						else if(err == SOLUTION)
+							res3+=1;
+					}
+				}
+			}
+			break;
+		}
+	}
+	return res;
 }
 
+
+
+
+
+
+
+/*UART Function*/
+void sendRequest(int baseFormat)
+{
+	switch(baseFormat)
+	{
+		case(STRFMT_SS2):
+		{
+			uint8_t SS2_RQ[19] = {
+														1,0x94,0x6B,0,0,1, 	//msg ID 20 continuous
+														1,0x96,0x69,0,0,1,	//msg ID 22 (ephemeris) continuous	
+														1,0x97,0x68,1,0,1,1}; //msg ID 23(Observation data)
+			HAL_UART_Transmit(&UartGPSHandle,SS2_RQ,19,1000);
+			break;
+		}
+	}
+}
+
+void SendInt(int num)
+{
+	uint8_t array[5];
+	array[0] = num >> 24;
+	array[1] = num >> 16;
+	array[2] = num >> 8;
+	array[3] = num>>8;
+	array[4] = '\n';
+	HAL_UART_Transmit(&UartResultHandle,array,5,5);
+}
+
+void SendIntStr(int num)
+{
+	uint8_t str[5];
+	sprintf((char*)str,"%4d\n",num);
+	HAL_UART_Transmit(&UartResultHandle,(unsigned char*)str,5,1);
+}
+
+void SendStr(const char *str)
+{
+	HAL_UART_Transmit_DMA(&UartResultHandle,(unsigned char*)str,strlen(str));
+}
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+	if(htim->Instance==TIM3)
+	{
+		flagTimeout=1;
+		LED3_TOGGLE;
+	}
+}
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *UartHandle)
+{
+}
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *UartHandle)//PC
+{			
+}
 #ifdef  USE_FULL_ASSERT
-/**
-  * @brief  Reports the name of the source file and the source line number
-  *         where the assert_param error has occurred.
-  * @param  file: pointer to the source file name
-  * @param  line: assert_param error line source number
-  * @retval None
-  */
 void assert_failed(uint8_t *file, uint32_t line)
 { 
   /* USER CODE BEGIN 6 */
@@ -359,6 +421,4 @@ void assert_failed(uint8_t *file, uint32_t line)
      tex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
   /* USER CODE END 6 */
 }
-#endif /* USE_FULL_ASSERT */
-
-/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
+#endif

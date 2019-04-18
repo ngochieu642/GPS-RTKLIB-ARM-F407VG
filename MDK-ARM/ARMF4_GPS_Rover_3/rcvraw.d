@@ -35,7 +35,7 @@ armf4_gps_rover_3\rcvraw.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_fl
 armf4_gps_rover_3\rcvraw.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_flash_ramfunc.h
 armf4_gps_rover_3\rcvraw.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h
 armf4_gps_rover_3\rcvraw.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h
-armf4_gps_rover_3\rcvraw.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h
 armf4_gps_rover_3\rcvraw.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim.h
 armf4_gps_rover_3\rcvraw.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim_ex.h
+armf4_gps_rover_3\rcvraw.o: ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_uart.h
 armf4_gps_rover_3\rcvraw.o: ../Core/Inc/SuperStarII.h

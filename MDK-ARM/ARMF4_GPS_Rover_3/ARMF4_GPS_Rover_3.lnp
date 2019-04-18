@@ -1,8 +1,5 @@
 --cpu=Cortex-M4.fp
 "armf4_gps_rover_3\startup_stm32f407xx.o"
-"armf4_gps_rover_3\main.o"
-"armf4_gps_rover_3\stm32f4xx_it.o"
-"armf4_gps_rover_3\stm32f4xx_hal_msp.o"
 "armf4_gps_rover_3\ephemeris.o"
 "armf4_gps_rover_3\lambda.o"
 "armf4_gps_rover_3\pntpos.o"
@@ -13,6 +10,9 @@
 "armf4_gps_rover_3\solution.o"
 "armf4_gps_rover_3\superstarii.o"
 "armf4_gps_rover_3\ublox.o"
+"armf4_gps_rover_3\main.o"
+"armf4_gps_rover_3\stm32f4xx_it.o"
+"armf4_gps_rover_3\stm32f4xx_hal_msp.o"
 "armf4_gps_rover_3\stm32f4xx_hal_tim.o"
 "armf4_gps_rover_3\stm32f4xx_hal_tim_ex.o"
 "armf4_gps_rover_3\stm32f4xx_hal_uart.o"

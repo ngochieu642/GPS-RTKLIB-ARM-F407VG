@@ -43,26 +43,23 @@
 #ifndef __MAIN_H
 #define __MAIN_H
 
-
-
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 /* Includes ------------------------------------------------------------------*/
+#include "stm32f4xx_hal.h"
+
+/* Private includes ----------------------------------------------------------*/
+/* USER CODE BEGIN Includes */
 #include <stdint.h>
 #include <stdbool.h>
-#include "stm32f4xx_hal.h"
 #include "stm32f4xx_hal_uart.h"
 #include "stm32f4xx_hal_gpio.h"
 #include "stm32f4xx_hal_tim.h"
 #include "stm32f4xx_hal_dma.h"
 #include "rtk.h"
 #include "SuperStarII.h"
-
-/* Private includes ----------------------------------------------------------*/
-/* USER CODE BEGIN Includes */
-
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
