@@ -72,11 +72,15 @@ int main(void)
   {
 		for(int i = 0;i<10;i++)
 			UART4Buffer[i]+=1;
-		HAL_UART_Transmit_DMA(&UartResultHandle,&UART4Buffer[0],10);
+//		HAL_UART_Transmit_DMA(&UartResultHandle,&UART4Buffer[0],10);
+//		SendInt(0x31323334);
+//		SendIntStr(45678);
+		SendStr("xin chao cac ban day la 1 str\n");
 		HAL_Delay(1000);
   }
 }
 
+/*Configuration Function*/
 void SystemClock_Config(void)
 {
   RCC_OscInitTypeDef RCC_OscInitStruct = {0};
@@ -378,25 +382,25 @@ void sendRequest(int baseFormat)
 }
 
 void SendInt(int num)
-{
+{/*vd SendInt(0x31323334), hercules will receive 1234*/
 	uint8_t array[5];
-	array[0] = num >> 24;
+	array[0] = num >> 24; // 8 MSB
 	array[1] = num >> 16;
 	array[2] = num >> 8;
-	array[3] = num>>8;
+	array[3] = num;
 	array[4] = '\n';
 	HAL_UART_Transmit(&UartResultHandle,array,5,5);
 }
 
 void SendIntStr(int num)
-{
+{/*Send an int with 4 number, end with \n, SendIntStr(8765), hercules will receive 8765\n */
 	uint8_t str[5];
 	sprintf((char*)str,"%4d\n",num);
 	HAL_UART_Transmit(&UartResultHandle,(unsigned char*)str,5,1);
 }
 
 void SendStr(const char *str)
-{
+	{/*Send any String, SendStr("hello world"), hercules will receive "hello world" */
 	HAL_UART_Transmit_DMA(&UartResultHandle,(unsigned char*)str,strlen(str));
 }
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
